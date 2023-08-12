@@ -16,10 +16,11 @@ class COLORS:
 
 
 class DIRS:
-    BASE = os.environ["BASEPATH"].replace('"', "")
-    LOGGING = f"{BASE}\\logging_files"
-    PY = f"{BASE}\\py_files"
-    JSON = f"{BASE}\\json_files"
+    BASE = "../"
+    LOGGING = f"{BASE}/logging_files"
+    PY = f"{BASE}/py_files"
+    JSON = f"{BASE}/json_files"
+    WAVELINK = f"{BASE}/wavelink_files"
 
 
 class actions:

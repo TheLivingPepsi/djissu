@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 import os
-import roblox
 import asyncio
 import json
 from utilities import DIRS, craft, COLORS, actions, COMPARISONS
@@ -14,8 +13,6 @@ class bot_handler:
     class Bot(commands.Bot):
         def __init__(self, *args, **kwargs) -> None:
             super().__init__(*args, **kwargs)
-            rbxtoken = os.environ["TOK_rbxacc_hz"].replace('"', "")
-            self.ro_client = roblox.Client(rbxtoken)
             self.logger = logging.getLogger("discord")
 
         def error_handler(self, task: asyncio.Task) -> None:
@@ -67,15 +64,26 @@ class bot_handler:
 
             print(f"----------\n{COLORS.BOLD}Cogs have been reloaded!{COLORS.RESET}")
 
+        def create_nodes(self, uris, password) -> list:
+            nodes = []
+            for uri in uris:
+                nodes.append(wavelink.Node(uri=uri, password=password))
+
+            return nodes
+
         async def setup_hook(self) -> None:
             print("Launching [issu]bot...")
             runner = asyncio.create_task(self.run_once_when_ready())
             runner.add_done_callback(self.error_handler)
             wvlnktoken = os.environ["TOK_wvlnk"].replace('"', "")
-            node: wavelink.Node = wavelink.Node(
-                uri="http://localhost:2333", password=wvlnktoken
+            uris = ["http://localhost:2333"]
+            await wavelink.NodePool.connect(
+                client=self, nodes=(self.create_nodes(uris, wvlnktoken))
             )
-            await wavelink.NodePool.connect(client=self, nodes=[node])
+
+    class HelpCommand(commands.DefaultHelpCommand):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
 
     def __init__(self) -> None:
         self.default_bot = {
@@ -87,7 +95,7 @@ class bot_handler:
             "intents": discord.Intents.all(),
             "case_insensitive": False,
         }
-        self.bot_settings = json.load(open(f"{DIRS.JSON}\\bot_settings.json"))
+        self.bot_settings = json.load(open(f"{DIRS.JSON}/bot_settings.json"))
         self.owner_id = int(os.environ["OWNER_ID"].replace('"', ""))
 
     @classmethod
@@ -116,10 +124,7 @@ class bot_handler:
     ) -> commands.HelpCommand:
         try:
             if not properties["default"]:
-                help_command = commands.HelpCommand(
-                    show_hidden=properties["command"]["show_hidden"],
-                    verify_checks=properties["command"]["verify_checks"],
-                )
+                help_command = self.HelpCommand(width=200)
             else:
                 raise Exception("Default value needed.")
             return help_command
@@ -170,7 +175,7 @@ class log_handler:
         logging.getLogger("discord.http").setLevel(logging.INFO)
 
         handler = logging.handlers.RotatingFileHandler(
-            filename=f"{DIRS.LOGGING}\\discord.log",
+            filename=f"{DIRS.LOGGING}/discord.log",
             encoding="utf-8",
             maxBytes=32 * 1024 * 1024,
             backupCount=5,
@@ -250,19 +255,19 @@ class lavalink_handler:
     @classmethod
     async def event(self):
         task = asyncio.create_task(self.task())
-        await asyncio.wait([task], timeout=5)
+        await asyncio.wait([task], timeout=15)
 
     @classmethod
     async def task(self):
-        path = os.environ["WAVELINK_PATH"].replace('"', "")
+        path = os.environ["WAVELINK_PATH"]
         print(
             f"{COLORS.RESET+COLORS.BOLD+COLORS.GREEN}Lavalink started.\n{COLORS.RESET}----------"
         )
 
         proc = await asyncio.create_subprocess_shell(
-            f"cd {path} & java -jar Lavalink.jar",
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
+            f"cd {path} && java -jar Lavalink.jar",
+            # stdout=asyncio.subprocess.DEVNULL,
+            # stderr=asyncio.subprocess.DEVNULL,
         )
 
         await proc.communicate()
