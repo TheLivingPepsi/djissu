@@ -40,7 +40,6 @@ class Cog(commands.Cog, name=name):
         """\n    Creates a connection/latency report to issu."""
         owner = self.bot.get_user(self.bot.owner_id)
         if owner:
-            current_time = discord.utils.utcnow()
             current_node = wavelink.NodePool.get_connected_node()
             await owner.send(
                 f"A latency report was made by {ctx.author} ({ctx.author.mention})!\nCurrent timestamp: {discord.utils.utcnow()}\nWavelink node info:\n- uri: {current_node.uri if 'localhost' not in current_node.uri else f'{current_node.uri} (server main)'}\n- status: {current_node.status}\n- latency: {current_node.heartbeat}",
