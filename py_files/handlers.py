@@ -259,7 +259,7 @@ class lavalink_handler:
 
     @classmethod
     async def task(self):
-        path = os.environ["WAVELINK_PATH"]
+        path = DIRS.WAVELINK
         print(
             f"{COLORS.RESET+COLORS.BOLD+COLORS.GREEN}Lavalink started.\n{COLORS.RESET}----------"
         )

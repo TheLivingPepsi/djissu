@@ -22,7 +22,7 @@ class Cog(commands.Cog, name=name):
         self.modes = ["sc", "spt", "yt", "direct_mode", "soundcloud", "spt", "youtube"]
         self.blacklist = [803579319003512833]
 
-    async def cog_after_invoke(self, ctx):
+    async def cog_before_invoke(self, ctx):
         if not self.preferred_channel[1] and self.preferred_channel[0] != ctx.channel:
             self.preferred_channel[0] = ctx.channel
 
@@ -322,14 +322,13 @@ class Cog(commands.Cog, name=name):
             )
             return vc.queue.put(TrackObject)
         else:
-            await message.edit(content=f"{message.content}\n\n▶ Now playing! ⤵")
-            return await vc.play(TrackObject)
+            await vc.play(TrackObject)
 
     @commands.command(aliases=["stop", "ause"])
     async def pause(
         self,
         ctx,
-        delay: int
+        delay: str
         | None = param(
             description="\n    (opt.) [int] The amount of time to delay for, in seconds.",
             default=None,
@@ -351,7 +350,7 @@ class Cog(commands.Cog, name=name):
                 f"❌ The bot is currently in use, please join me in {vc.channel.mention} instead!"
             )
 
-        if vc:
+        if vc and vc.is_playing():
             current_timestamp = round(math.floor(vc.position / 1000))
             duration_timestamp = round(math.floor(vc.current.length / 1000))
 
@@ -362,14 +361,15 @@ class Cog(commands.Cog, name=name):
             try:
                 if delay:
                     await message.edit(
-                        f"{message.content}\n\n⏯ Paused for {delay} seconds..."
+                        content=f"{message.content}\n\n⏯ Pausing for {delay} seconds..."
                     )
-                    asyncio.sleep(int(delay))
+                    await asyncio.sleep(int(delay))
                     await message.edit(
-                        f"{message.content}\n\n⏯ Resumed after {delay} seconds."
+                        content=f"{message.content}\n\n⏯ Resumed after {delay} seconds."
                     )
-                    vc.resume()
-            except:
+                    await vc.resume()
+            except Exception as exc:
+                print(exc)
                 pass
         else:
             return await ctx.reply("❌ There's nothing to pause!")
@@ -410,18 +410,17 @@ class Cog(commands.Cog, name=name):
         track = vc.current
 
         async with aiohttp.ClientSession() as session:
-            thumb_url = track.thumbnail or await track.fetch_thumbnail()
-
-            file = await craft.file_from_url(thumb_url, session) if thumb_url else None
+            thumb_url = track.thumbnail or await track.fetch_thumbnail() or None
+            _file = await craft.file_from_url(thumb_url, session) if thumb_url else None
             if ctx:
                 await ctx.reply(
                     content=now_playing,
-                    file=file,
+                    file=_file,
                 )
             elif self.preferred_channel[2]:
                 await self.preferred_channel[0].send(
                     content=now_playing,
-                    file=file,
+                    file=_file,
                 )
 
     @commands.command(aliases=["np", "current", "nowplaying"])
@@ -676,7 +675,6 @@ class Cog(commands.Cog, name=name):
 
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackEventPayload):
-        track = payload.original
         player = payload.player
         return await self.display_message(None, player)
 

@@ -16,7 +16,7 @@ class COLORS:
 
 
 class DIRS:
-    BASE = "../"
+    BASE = "./"
     LOGGING = f"{BASE}/logging_files"
     PY = f"{BASE}/py_files"
     JSON = f"{BASE}/json_files"
@@ -140,10 +140,14 @@ class craft:
             return None
 
     @classmethod
-    async def file_from_url(
-        self, url: str | None = None, client: aiohttp.ClientSession | None = None
-    ) -> discord.File | None:
-        return discord.File(await actions.request_http(url, client), "image.png")
+    async def file_from_url(self, url: str, client: aiohttp.ClientSession) -> discord.File | None:
+        if (
+            url and 
+            client and 
+            (fp := await actions.request_http(url, client))
+        ):
+            return discord.File(fp, "image.png")
+        return None
 
     @classmethod
     def formatted_time(self, seconds: int | float | None = None) -> str:

@@ -7,7 +7,7 @@ def main() -> None:
     version_handler.check_version()
     lavalink_handler.start()
 
-    token = os.environ["TOK_dcdbt"].replace('"', "")
+    token = os.environ["TOK_dcdbt_2"].replace('"', "")
     bot = bot_handler().create_bot()
 
     bot.run(token=token)

@@ -135,3 +135,5 @@ cython_debug/
 wavelink_files/
 logging_files/
 ignore/
+*.sh
+requirements.txt
