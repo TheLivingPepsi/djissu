@@ -3,10 +3,11 @@ from discord.ext import commands
 import os
 import asyncio
 import json
-from utilities import DIRS, craft, COLORS, actions, COMPARISONS
+from issutilities import DIRS, craft, COLORS, actions
 import random
 import traceback
 import wavelink
+import platform
 
 
 class bot_handler:
@@ -118,18 +119,6 @@ class bot_handler:
         elif other_prefixes:
             return prefixes
 
-    @classmethod
-    def craft_help_command(
-        self, properties: dict | None = None
-    ) -> commands.HelpCommand:
-        try:
-            if not properties["default"]:
-                help_command = self.HelpCommand(width=200)
-            else:
-                raise Exception("Default value needed.")
-            return help_command
-        except:
-            return commands.DefaultHelpCommand()
 
     def create_bot(self, use_default: bool | None = False) -> commands.Bot:
         set_dict = self.default_bot
@@ -145,9 +134,6 @@ class bot_handler:
                 self.bot_settings["command_prefix"]
             )
             set_dict["description"] = self.bot_settings["description"]
-            set_dict["help_command"] = self.craft_help_command(
-                self.bot_settings["help_command"]
-            )
             set_dict["case_insensitive"] = self.bot_settings["case_insensitive"]
 
         bot = self.Bot(
@@ -224,7 +210,20 @@ class version_handler:
 
     @classmethod
     def check_version(self) -> None:
-        comparisons = COMPARISONS
+        comparisons = {
+            "Python": [
+                platform.python_version(),
+                "https://endoflife.date/api/python.json",
+            ],
+            "discord.py": [
+                discord.__version__,
+                "https://pypi.org/pypi/discord.py/json",
+            ],
+            "wavelink": [
+                wavelink.__version__,
+                "https://pypi.org/pypi/wavelink/json"
+            ],
+        }
         actions.clear()
 
         for comparison in comparisons.items():
@@ -237,10 +236,11 @@ class version_handler:
                 match (name):
                     case "Python":
                         latest_version = r.json()[0]["latest"]
-                    case "discord.py":
-                        latest_version = list(json.loads(r.text)["releases"].keys())[-1]
                     case _:
-                        latest_version = "Unknown"
+                        try:
+                            latest_version = list(json.loads(r.text)["releases"].keys())[-1]
+                        except:
+                            latest_version = "Unknown"
             except:
                 latest_version = "Unknown"
 

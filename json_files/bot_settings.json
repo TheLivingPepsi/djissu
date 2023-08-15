@@ -1,34 +1,21 @@
 {
-    "activities": [
-        {
-            "type": "Listening",
-            "name": "k-pop"
-        }
-    ],
+  "activities": [
+    {
+      "type": "Listening",
+      "name": "k-pop"
+    }
+  ],
 
-    "allowed_mentions": {
-        "everyone": false,
-        "users": true,
-        "roles": false,
-        "replied_user": false
-    },
+  "allowed_mentions": {
+    "everyone": false,
+    "users": true,
+    "roles": false,
+    "replied_user": false
+  },
 
-    "command_prefix": [
-        "@",
-        "dj-",
-        "m!",
-        "p!"
-    ],
+  "command_prefix": ["@", "dj-", "m!", "p!"],
 
-    "description": "DJissu is a custom music bot.",
+  "description": "DJissu is a custom music bot.",
 
-    "help_command": {
-        "default": true,
-        "command": {
-            "show_hidden": null,
-            "verify_checks": null
-        }
-    },
-    
-    "case_insensitive": true
+  "case_insensitive": true
 }

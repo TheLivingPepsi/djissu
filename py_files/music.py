@@ -4,7 +4,7 @@ import discord
 import os
 import wavelink
 from wavelink.ext import spotify
-from utilities import craft
+from issutilities import craft
 import aiohttp
 import math
 import asyncio
