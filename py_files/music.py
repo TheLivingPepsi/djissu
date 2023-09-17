@@ -197,7 +197,7 @@ class Cog(commands.Cog, name=name):
                 if value.lower() == "false"
                 else not self.preferred_channel[2]
             )
-            if self.preferred_channel[2]:
+            if not self.preferred_channel[2]:
                 return await ctx.reply(
                     f"✉ Music announcements to {self.preferred_channel[0]} are now resumed."
                 )
