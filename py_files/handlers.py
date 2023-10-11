@@ -73,7 +73,7 @@ class bot_handler:
             return nodes
 
         async def setup_hook(self) -> None:
-            print("Launching [issu]bot...")
+            print("Launching [dj]issu...")
             runner = asyncio.create_task(self.run_once_when_ready())
             runner.add_done_callback(self.error_handler)
             wvlnktoken = os.environ["TOK_wvlnk"].replace('"', "")
@@ -96,7 +96,6 @@ class bot_handler:
             "intents": discord.Intents.all(),
             "case_insensitive": False,
         }
-        self.bot_settings = json.load(open(f"{DIRS.JSON}/bot_settings.json"))
         self.owner_id = int(os.environ["OWNER_ID"].replace('"', ""))
 
     @classmethod
@@ -119,22 +118,24 @@ class bot_handler:
         elif other_prefixes:
             return prefixes
 
-
-    def create_bot(self, use_default: bool | None = False) -> commands.Bot:
+    def create_bot(
+        self, use_default: bool | None = False, version: int | None = 0
+    ) -> commands.Bot:
+        bot_settings = json.load(open(f"{DIRS.JSON}/bot_settings_{version}.json"))
         set_dict = self.default_bot
 
         if not use_default:
             set_dict["activity"] = craft.activity(
-                random.choice(self.bot_settings["activities"])
+                random.choice(bot_settings["activities"])
             )
             set_dict["allowed_mentions"] = craft.mentions(
-                self.bot_settings["allowed_mentions"]
+                bot_settings["allowed_mentions"]
             )
             set_dict["command_prefix"] = self.check_prefixes(
-                self.bot_settings["command_prefix"]
+                bot_settings["command_prefix"]
             )
-            set_dict["description"] = self.bot_settings["description"]
-            set_dict["case_insensitive"] = self.bot_settings["case_insensitive"]
+            set_dict["description"] = bot_settings["description"]
+            set_dict["case_insensitive"] = bot_settings["case_insensitive"]
 
         bot = self.Bot(
             activity=set_dict["activity"],
@@ -219,10 +220,7 @@ class version_handler:
                 discord.__version__,
                 "https://pypi.org/pypi/discord.py/json",
             ],
-            "wavelink": [
-                wavelink.__version__,
-                "https://pypi.org/pypi/wavelink/json"
-            ],
+            "wavelink": [wavelink.__version__, "https://pypi.org/pypi/wavelink/json"],
         }
         actions.clear()
 
@@ -238,36 +236,12 @@ class version_handler:
                         latest_version = r.json()[0]["latest"]
                     case _:
                         try:
-                            latest_version = list(json.loads(r.text)["releases"].keys())[-1]
+                            latest_version = list(
+                                json.loads(r.text)["releases"].keys()
+                            )[-1]
                         except:
                             latest_version = "Unknown"
             except:
                 latest_version = "Unknown"
 
             self.compare(current_version, latest_version, name)
-
-
-class lavalink_handler:
-    @classmethod
-    def start(self):
-        asyncio.run(self.event())
-
-    @classmethod
-    async def event(self):
-        task = asyncio.create_task(self.task())
-        await asyncio.wait([task], timeout=15)
-
-    @classmethod
-    async def task(self):
-        path = DIRS.WAVELINK
-        print(
-            f"{COLORS.RESET+COLORS.BOLD+COLORS.GREEN}Lavalink started.\n{COLORS.RESET}----------"
-        )
-
-        proc = await asyncio.create_subprocess_shell(
-            f"cd {path} && java -jar Lavalink.jar",
-            # stdout=asyncio.subprocess.DEVNULL,
-            # stderr=asyncio.subprocess.DEVNULL,
-        )
-
-        await proc.communicate()

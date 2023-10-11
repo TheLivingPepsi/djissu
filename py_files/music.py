@@ -21,6 +21,7 @@ class Cog(commands.Cog, name=name):
         self.preferred_channel = [None, False, True]
         self.modes = ["sc", "spt", "yt", "direct_mode", "soundcloud", "spt", "youtube"]
         self.blacklist = [803579319003512833]
+        self.alone = []
 
     async def cog_before_invoke(self, ctx):
         if not self.preferred_channel[1] and self.preferred_channel[0] != ctx.channel:
@@ -32,7 +33,13 @@ class Cog(commands.Cog, name=name):
     @commands.command(aliases=["latency", "test", "ing"])
     async def ping(self, ctx):
         """\n    Tests the bot connection."""
-        await ctx.reply(f"🏓 Pong! Latency is {round(self.bot.latency*1000, 2)}ms")
+        bot_latency = round(self.bot.latency * 1000, 2)
+        vc: wavelink.Player = ctx.voice_client
+        vc_latency = round(vc.ping, 2) if vc else "(N/A)"
+
+        await ctx.reply(
+            f"🏓 Pong!\n- Bot latency: {bot_latency}ms\n- VC latency: {vc_latency}ms\n{'*If VC latency is 0ms, try playing something*' if vc_latency == 0 else ''}"
+        )
 
     @commands.command(aliases=["roblem", "problem"])
     @commands.cooldown(rate=1, per=120)
@@ -380,7 +387,8 @@ class Cog(commands.Cog, name=name):
         vc: wavelink.Player = ctx.voice_client
 
         if vc and (
-            ctx.author.voice.channel != vc.channel and len(vc.channel.members) >= 2
+            (not ctx.author.voice or ctx.author.voice.channel != vc.channel)
+            and len(vc.channel.members) >= 2
         ):
             return await ctx.reply(
                 f"❌ The bot is currently in use, please join me in {vc.channel.mention} instead!"
