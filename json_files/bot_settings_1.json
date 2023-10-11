@@ -1,0 +1,21 @@
+{
+  "activities": [
+    {
+      "type": "Listening",
+      "name": "k-pop"
+    }
+  ],
+
+  "allowed_mentions": {
+    "everyone": false,
+    "users": true,
+    "roles": false,
+    "replied_user": false
+  },
+
+  "command_prefix": ["@", "dt-"],
+
+  "description": "DJissu is a custom music bot.",
+
+  "case_insensitive": true
+}
