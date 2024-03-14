@@ -13,7 +13,7 @@ def main(args) -> None:
 
     bot = bot_handler().create_bot(version=settings_file_type)
 
-    bot.run(token=os.getenv("DJISSU_TOKEN"))
+    bot.run(token=os.getenv("DJISSU_TOKEN"), log_handler=None)
 
 
 if __name__ == "__main__":

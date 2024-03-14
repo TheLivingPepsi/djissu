@@ -47,9 +47,7 @@ class bot_handler:
 
         async def reload_cogs(self) -> None:
             try:
-                await self.reload_extension(
-                    "music"
-                )  # can we switch this back to nested strings in python 3.12?
+                await self.reload_extension("music")
                 print("    > Loaded cog!")
             except commands.errors.ExtensionNotLoaded:
                 await self.load_extension("music")
@@ -76,7 +74,8 @@ class bot_handler:
             print("Launching [dj]issu...")
             runner = asyncio.create_task(self.run_once_when_ready())
             runner.add_done_callback(self.error_handler)
-            wvlnktoken = os.getenv("WAVELINK_PASS", "youshallnotpass").replace('"', "")
+            print(os.getenv("WAVELINK_TOKEN"))
+            wvlnktoken = os.getenv("WAVELINK_TOKEN", "youshallnotpass").replace('"', "")
             uris = ["http://localhost:2333"]
             await wavelink.Pool.connect(
                 client=self, nodes=(self.create_nodes(uris, wvlnktoken))
@@ -147,6 +146,10 @@ class bot_handler:
             case_insensitive=set_dict["case_insensitive"],
             owner_id=self.owner_id,
         )
+
+        @bot.command()
+        async def close(ctx):
+            await bot.close()
 
         return bot
 

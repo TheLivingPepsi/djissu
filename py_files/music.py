@@ -227,12 +227,6 @@ class Cog(commands.Cog, name=name):
     async def play(
         self,
         ctx,
-        mode: str
-        | None = param(
-            description="\n    (opt.) [string] {yt/spt/sc/direct_mode} The search mode to use.",
-            default=None,
-            displayed_default=None,
-        ),
         *,
         search: str
         | None = param(
@@ -270,22 +264,15 @@ class Cog(commands.Cog, name=name):
         else:
             message = None
 
-        if not mode and vc.paused:
-            return await self.resume_track(ctx)
-        elif not mode:
+        if not search:
+            if vc.paused:
+                return await self.resume_track(ctx)
+
             return (
                 await message.edit(content="❓ Whatcha wanna play?")
                 if message
                 else await ctx.reply("❓ Whatcha wanna play?")
             )
-        elif mode and not search:
-            search = mode
-            mode = "yt"
-        elif mode.lower() not in self.modes:
-            search = f"{mode} {search}"
-            mode = "yt"
-        else:
-            mode = mode.lower()
 
         message = (
             await ctx.reply("⏳ Loading...")
@@ -293,7 +280,7 @@ class Cog(commands.Cog, name=name):
             else await message.edit(content=f"{message.content}\n\n⏳ Loading...")
         )
 
-        Tracks = await self.query_tracks(ctx, mode, search)
+        Tracks: wavelink.Search = await wavelink.Playable.search(search)
 
         if Tracks is None:
             return await message.edit(
@@ -303,7 +290,10 @@ class Cog(commands.Cog, name=name):
             playable_object = Tracks[0]
         elif type(Tracks) == wavelink.Playlist:
             playable_object = Tracks
-
+        else:
+            return await message.edit(
+                content=f"{message.content}\n\n❌ Something wrong happened! You actually aren't supposed to see this!\n\n*This feature is in beta. Send all suggestions to @issu*"
+            )
 
         if vc.current:
             await message.edit(
@@ -568,28 +558,37 @@ class Cog(commands.Cog, name=name):
         if vc:
             if not mode:
                 mode = "placeholder"
+            queue_type = "Unknown"
+            has_changed = True
+
             match (mode.lower()):
                 case "one" | "track":
                     vc.queue.mode = wavelink.QueueMode.loop
+                    queue_type = "Loop Track"
                 case "all" | "queue":
                     vc.queue.mode = wavelink.QueueMode.loop_all
+                    queue_type = "Loop Queue"
                 case "none":
                     vc.queue.mode = wavelink.QueueMode.normal
+                    queue_type = "No Loop"
                 case _:
-                    queue_type = ""
+                    has_changed = False
+
                     match (vc.queue.mode):
                         case wavelink.QueueMode.loop:
                             queue_type = "Loop Track"
-                        case wavelink.QueueMode.loop:
+                        case wavelink.QueueMode.loop_all:
                             queue_type = "Loop Queue"
                         case wavelink.QueueMode.normal:
                             queue_type = "No Loop"
 
-                    return await ctx.reply(
-                        f"```🔃 Loop settings```\n- Queue type: `{queue_type}`"
-                    )
+            if has_changed:
+                return await ctx.reply(
+                    f"Your loop settings have changed.\n\n- Queue type: `{queue_type}`"
+                )
+
             return await ctx.reply(
-                f"Your loop settings have changed.\n\n- Queue type: `{queue_type}`"
+                f"```🔃 Loop settings```\n- Queue type: `{queue_type}`"
             )
         else:
             await ctx.message.add_reaction("🤫")
