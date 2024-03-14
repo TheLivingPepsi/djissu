@@ -132,7 +132,7 @@ cython_debug/
 
 # Other
 *.out
-wavelink_files/
+lavalink_files/
 logging_files/
 ignore/
 *.sh

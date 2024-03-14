@@ -76,9 +76,9 @@ class bot_handler:
             print("Launching [dj]issu...")
             runner = asyncio.create_task(self.run_once_when_ready())
             runner.add_done_callback(self.error_handler)
-            wvlnktoken = os.environ["TOK_wvlnk"].replace('"', "")
+            wvlnktoken = os.getenv("WAVELINK_PASS", "youshallnotpass").replace('"', "")
             uris = ["http://localhost:2333"]
-            await wavelink.NodePool.connect(
+            await wavelink.Pool.connect(
                 client=self, nodes=(self.create_nodes(uris, wvlnktoken))
             )
 
@@ -96,7 +96,7 @@ class bot_handler:
             "intents": discord.Intents.all(),
             "case_insensitive": False,
         }
-        self.owner_id = int(os.environ["OWNER_ID"].replace('"', ""))
+        self.owner_id = int(os.getenv("OWNER_ID", "1234567890").replace('"', ""))
 
     @classmethod
     def check_prefixes(self, prefixes: list | None = ["@"]) -> any:

@@ -3,7 +3,6 @@ from discord.ext.commands import param
 import discord
 import os
 import wavelink
-from wavelink.ext import spotify
 from issutilities import craft
 import aiohttp
 import math
@@ -38,7 +37,7 @@ class Cog(commands.Cog, name=name):
         vc_latency = round(vc.ping, 2) if vc else "(N/A)"
 
         await ctx.reply(
-            f"🏓 Pong!\n- Bot latency: {bot_latency}ms\n- VC latency: {vc_latency}ms\n{'*If VC latency is 0ms, try playing something*' if vc_latency == 0 else ''}"
+            f"🏓 Pong!\n- Bot latency: {bot_latency}ms\n- VC latency: {vc_latency}ms\n{'*If VC latency is <=0ms, try playing something*' if vc_latency == 0 else ''}"
         )
 
     @commands.command(aliases=["roblem", "problem"])
@@ -47,7 +46,8 @@ class Cog(commands.Cog, name=name):
         """\n    Creates a connection/latency report to issu."""
         owner = self.bot.get_user(self.bot.owner_id)
         if owner:
-            current_node = wavelink.NodePool.get_connected_node()
+            vc: wavelink.Player = ctx.voice_client
+            current_node = vc.node
             await owner.send(
                 f"A latency report was made by {ctx.author} ({ctx.author.mention})!\nCurrent timestamp: {discord.utils.utcnow()}\nWavelink node info:\n- uri: {current_node.uri if 'localhost' not in current_node.uri else f'{current_node.uri} (server main)'}\n- status: {current_node.status}\n- latency: {current_node.heartbeat}",
                 silent=True,
@@ -80,12 +80,14 @@ class Cog(commands.Cog, name=name):
         return await ctx.reply(f"🔊 Joining `{channel.name}`!")
 
     async def switch_preferred_channel(
-        self, ctx: commands.Context, channel: discord.TextChannel = None
-    ) -> discord.Message:
+        self, ctx: commands.Context, channel: discord.TextChannel = None, also_announce: str = None) -> discord.Message:
         self.preferred_channel[0] = channel
-        self.preferred_channel[1] = True
+        old_preferred_setting = self.preferred_channel[1]
+        self.preferred_channel[1] = bool(also_announce) or self.preferred_channel[1]
+        changed = old_preferred_setting == self.preferred_channel[1]
+
         return await ctx.reply(
-            f"📝 Changed preferred announcement channel to `{channel.name}`!"
+            f"📝 Changed preferred music announcement channel to `{channel.name}`{" and will resume announcing now!" if changed and self.preferred_channel[1] else "."}"
         )
 
     async def determine_channel_handling(
@@ -138,7 +140,7 @@ class Cog(commands.Cog, name=name):
                     return await ctx.reply(
                         '❓Are you sure you want to set the preferred announcement channel to a VC? use a "-force" on this command!'
                     )
-            elif not vc:
+            elif     vc:
                 return await self.determine_channel_handling(ctx, channel)
             return await ctx.reply("🤓 Hey silly! I'm already here! (hi already here!)")
         else:
@@ -149,8 +151,8 @@ class Cog(commands.Cog, name=name):
     async def resume_track(self, ctx) -> discord.Message:
         vc: wavelink.Player = ctx.voice_client
 
-        if vc and vc.is_paused():
-            await vc.resume()
+        if vc and vc.paused:
+            await vc.pause(False)
             return await ctx.reply(
                 f"▶ Resuming `{vc.current}` by **{vc.current.author}**!"
             )
@@ -268,7 +270,7 @@ class Cog(commands.Cog, name=name):
         else:
             message = None
 
-        if not mode and vc.is_paused():
+        if not mode and vc.paused:
             return await self.resume_track(ctx)
         elif not mode:
             return (
@@ -291,45 +293,31 @@ class Cog(commands.Cog, name=name):
             else await message.edit(content=f"{message.content}\n\n⏳ Loading...")
         )
 
-        TrackObject = await self.query_tracks(ctx, mode, search)
+        Tracks = await self.query_tracks(ctx, mode, search)
 
-        if TrackObject is None:
+        if Tracks is None:
             return await message.edit(
                 content=f"{message.content}\n\n❌ Something wrong happened! Could not complete search.\n\n*This feature is in beta. Send all suggestions to @issu*"
             )
-        elif type(TrackObject) == list:
-            return await message.edit(
-                f"{message.content}\n\n❌ Spotify tracks/playlists are currently not supported. Sorry!"
-            )
-        elif TrackObject is False:
-            return await message.edit(
-                content=f"{message.content}\n\n❌ Could not find your desired song, even with all the different searches!\n\n*This feature is in beta. Send all suggestions to @issu*"
-            )
+        elif type(Tracks) == list:
+            playable_object = Tracks[0]
+        elif type(Tracks) == wavelink.Playlist:
+            playable_object = Tracks
 
-        if (
-            type(TrackObject) == wavelink.YouTubePlaylist
-            or type(TrackObject) == wavelink.SoundCloudPlaylist
-        ):
-            if vc.current:
-                await message.edit(
-                    content=f"{message.content}\n\n📃 Queued `{TrackObject}` starting at __Position #{len(vc.queue)+1}__"
-                )
-                return await vc.queue.put_wait(TrackObject)
-            else:
-                await message.edit(
-                    content=f"{message.content}\n\n📃 Queued `{TrackObject}` starting at __Position #{len(vc.queue)}__"
-                )
-                await vc.queue.put_wait(TrackObject)
-
-                return await vc.play(vc.queue.get())
 
         if vc.current:
             await message.edit(
-                content=f"{message.content}\n\n📃 Queued `{TrackObject}` by **{TrackObject.author}** at __Position #{len(vc.queue)+1}__"
+                content=f"{message.content}\n\n📃 Queued `{playable_object}` starting at __Position #{len(vc.queue)+1}__"
             )
-            return vc.queue.put(TrackObject)
+            return await vc.queue.put_wait(playable_object)
         else:
-            await vc.play(TrackObject)
+            await message.edit(
+                content=f"{message.content}\n\n📃 Queued `{playable_object}` starting at __Position #{len(vc.queue)}__"
+            )
+            await vc.queue.put_wait(playable_object)
+
+            return await vc.play(vc.queue.get())
+
 
     @commands.command(aliases=["stop", "ause"])
     async def pause(
@@ -357,14 +345,14 @@ class Cog(commands.Cog, name=name):
                 f"❌ The bot is currently in use, please join me in {vc.channel.mention} instead!"
             )
 
-        if vc and vc.is_playing():
+        if vc and not vc.paused:
             current_timestamp = round(math.floor(vc.position / 1000))
             duration_timestamp = round(math.floor(vc.current.length / 1000))
 
             message = await ctx.reply(
                 f"⏸ PAUSED | `{vc.current}` by **{vc.current.author}** [{craft.formatted_time(current_timestamp)} / {craft.formatted_time(duration_timestamp)}]"
             )
-            await vc.pause()
+            await vc.pause(True)
             try:
                 if delay:
                     await message.edit(
@@ -374,7 +362,7 @@ class Cog(commands.Cog, name=name):
                     await message.edit(
                         content=f"{message.content}\n\n⏯ Resumed after {delay} seconds."
                     )
-                    await vc.resume()
+                    await vc.pause(False)
             except Exception as exc:
                 print(exc)
                 pass
@@ -418,7 +406,7 @@ class Cog(commands.Cog, name=name):
         track = vc.current
 
         async with aiohttp.ClientSession() as session:
-            thumb_url = track.thumbnail or await track.fetch_thumbnail() or None
+            thumb_url = track.artwork or None
             _file = await craft.file_from_url(thumb_url, session) if thumb_url else None
             if ctx:
                 await ctx.reply(
@@ -546,7 +534,8 @@ class Cog(commands.Cog, name=name):
 
         if vc:
             await ctx.reply("⏭ Skipping song...")
-            return await vc.seek(vc.current.length)
+            await vc.skip(force=False)
+            return await vc.pause(False)
         await ctx.message.add_reaction("❌")
 
     @commands.command(aliases=["repeat", "l"])
@@ -555,25 +544,13 @@ class Cog(commands.Cog, name=name):
         ctx,
         mode: str
         | None = param(
-            description="\n    [str] {one/all/both/none} The mode to adjust. See p!help loop for more info.",
+            description="\n    [str] {one/all/none} The mode to switch to.",
             default=None,
             displayed_default=None,
         ),
-        value: str
-        | None = param(
-            description="\n    (opt.) {true/false} The value to set the mode to. Otherwise toggles the option.",
-            default=None,
-            displayed_default=None,
-        ),
+
     ):
-        """\n    Displays or changes the loop settings for the bot.
-
-        Mode "one" repeats the currently playing track.
-        Mode "all" repeats the queue.
-        Mode "both" is a shorthand taht sets both settings to true.
-        Mode "none" is a shorthand that sets both settings to false.
-
-        The modes are non-mutually exclusive; mode "one" will take precedence over "all".
+        """\n    Displays/changes the loop setting.
         """
         vc: wavelink.Player = ctx.voice_client
 
@@ -593,39 +570,32 @@ class Cog(commands.Cog, name=name):
                 mode = "placeholder"
             match (mode.lower()):
                 case "one" | "track":
-                    vc.queue.loop = (
-                        True
-                        if value == "true"
-                        else False
-                        if value == "false"
-                        else not vc.queue.loop
-                    )
+                    vc.queue.mode = wavelink.QueueMode.loop
                 case "all" | "queue":
-                    vc.queue.loop_all = (
-                        True
-                        if value == "true"
-                        else False
-                        if value == "false"
-                        else not vc.queue.loop_all
-                    )
-                case "both":
-                    vc.queue.loop = True
-                    vc.queue.loop_all = True
+                    vc.queue.mode = wavelink.QueueMode.loop_all
                 case "none":
-                    vc.queue.loop = False
-                    vc.queue.loop_all = False
+                    vc.queue.mode = wavelink.QueueMode.normal
                 case _:
+                    queue_type = ""
+                    match (vc.queue.mode):
+                        case wavelink.QueueMode.loop:
+                            queue_type = "Loop Track"
+                        case wavelink.QueueMode.loop:
+                            queue_type = "Loop Queue"
+                        case wavelink.QueueMode.normal:
+                            queue_type = "No Loop"
+
                     return await ctx.reply(
-                        f"```🔃 Loop settings```\n- Loop track: `{vc.queue.loop}`\n- Loop all: `{vc.queue.loop_all}`"
+                        f"```🔃 Loop settings```\n- Queue type: `{queue_type}`"
                     )
             return await ctx.reply(
-                f"Your loop settings have changed.\n\n- Loop track: `{vc.queue.loop}`\n- Loop all: `{vc.queue.loop_all}`"
+                f"Your loop settings have changed.\n\n- Queue type: `{queue_type}`"
             )
         else:
             await ctx.message.add_reaction("🤫")
 
     @commands.command(aliases=["goto", "gt"])
-    async def seek(
+    async def seek( 
         self,
         ctx,
         timestamp: str
@@ -682,12 +652,12 @@ class Cog(commands.Cog, name=name):
         await ctx.message.add_reaction("❌")
 
     @commands.Cog.listener()
-    async def on_wavelink_track_start(self, payload: wavelink.TrackEventPayload):
+    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         player = payload.player
         return await self.display_message(None, player)
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, payload):
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
         try:
             next_song: wavelink.Playable = payload.player.queue.get()
             if next_song:
@@ -718,54 +688,8 @@ class Cog(commands.Cog, name=name):
 
     async def query_tracks(self, ctx, mode, search):
         try:
-            match (mode.lower()):
-                case "yt" | "youtube":
-                    try:
-                        if "playlist" in search:
-                            yt_playlist: wavelink.YouTubePlaylist = (
-                                await wavelink.YouTubePlaylist.search(search)
-                            )
-
-                            return yt_playlist
-                    except:
-                        pass
-
-                    yt_tracks: list[
-                        wavelink.YouTubeTrack
-                    ] = await wavelink.YouTubeTrack.search(search)
-
-                    if yt_tracks:
-                        return yt_tracks[0]
-                    return False
-                case "soundcloud" | "sc":
-                    try:
-                        if "sets" in search:
-                            sc_playlist: list[
-                                wavelink.SoundCloudPlaylist
-                            ] = await wavelink.SoundCloudPlaylist.search(search)
-                            if sc_playlist:
-                                return sc_playlist
-                    except Exception as exc:
-                        pass
-                    sc_tracks: list[
-                        wavelink.SoundCloudTrack
-                    ] = await wavelink.SoundCloudTrack.search(search)
-
-                    if sc_tracks:
-                        return sc_tracks[0]
-                    return False
-                case "spt" | "spotify":
-                    sptfy_playlist = list[spotify.SpotifyTrack] = None
-                    sptfy_tracks = list[spotify.SpotifyTrack] = None
-
-                    return []
-                case "direct_mode":
-                    tracks: list[
-                        wavelink.GenericTrack
-                    ] = await wavelink.GenericTrack.search(search)
-                    if tracks:
-                        return tracks[0]
-                    return False
+            tracks: wavelink.Search = await wavelink.Playable.search(search)
+            return tracks
         except Exception as exc:
             await ctx.reply(f"general error: {exc}")
             return False

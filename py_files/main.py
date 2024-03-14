@@ -6,10 +6,14 @@ def main(args) -> None:
     log_handler.create_logging()
     version_handler.check_version()
 
-    token = os.environ[args[1]].replace('"', "") if len(args) >= 2 else None
-    bot = bot_handler().create_bot(version=args[2])
+    try:
+        settings_file_type = int(args[1])
+    except:
+        settings_file_type = 0
 
-    bot.run(token=token)
+    bot = bot_handler().create_bot(version=settings_file_type)
+
+    bot.run(token=os.getenv("DJISSU_TOKEN"))
 
 
 if __name__ == "__main__":
