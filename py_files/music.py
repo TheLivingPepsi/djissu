@@ -309,7 +309,7 @@ class Cog(commands.Cog, name=name):
             return await vc.play(vc.queue.get())
 
 
-    @commands.command(aliases=["stop", "ause"])
+    @commands.command()
     async def pause(
         self,
         ctx,
@@ -359,7 +359,7 @@ class Cog(commands.Cog, name=name):
         else:
             return await ctx.reply("❌ There's nothing to pause!")
 
-    @commands.command(aliases=["leave", "dc"])
+    @commands.command(aliases=["leave", "dc", "stop"])
     async def disconnect(self, ctx):
         """\n    Disconnects from the connected VC."""
         vc: wavelink.Player = ctx.voice_client
@@ -667,8 +667,14 @@ class Cog(commands.Cog, name=name):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        if member == self.bot.user and not after.channel:
+        if member.id == self.bot.user.id and not after.channel:
             self.preferred_channel = [None, False, True]
+
+        if len(members := before.channel.members) == 1 and members[0].id == self.bot.user.id:
+            vc = before.channel.guild.voice_client
+
+            vc.cleanup()
+            await vc.disconnect()
 
     async def cog_command_error(self, ctx, error):
         if type(error) == commands.CheckFailure:
