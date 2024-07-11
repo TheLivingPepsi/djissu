@@ -14,7 +14,7 @@ import traceback
 name = (os.path.basename(__file__)).replace(".py", "")
 
 
-class Cog(commands.Cog, name=name):
+class CogOld(commands.Cog, name=name):
     def __init__(self, bot):
         self.bot = bot
         self.preferred_channel = [None, False, True]
@@ -116,6 +116,8 @@ class Cog(commands.Cog, name=name):
 
         vc: wavelink.Player = ctx.voice_client
 
+        print(vc)
+
         if not ctx.author.voice:
             return await ctx.reply(
                 "🤓 Hey silly! You have to be in a VC to use the music bot :P"
@@ -140,7 +142,7 @@ class Cog(commands.Cog, name=name):
                     return await ctx.reply(
                         '❓Are you sure you want to set the preferred announcement channel to a VC? use a "-force" on this command!'
                     )
-            elif     vc:
+            elif not vc:
                 return await self.determine_channel_handling(ctx, channel)
             return await ctx.reply("🤓 Hey silly! I'm already here! (hi already here!)")
         else:
@@ -307,7 +309,6 @@ class Cog(commands.Cog, name=name):
             await vc.queue.put_wait(playable_object)
 
             return await vc.play(vc.queue.get())
-
 
     @commands.command()
     async def pause(
@@ -848,9 +849,44 @@ class Cog(commands.Cog, name=name):
             )
 
 
+class Cog(commands.Cog, name=name):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @commands.command(aliases=["latency", "test", "ing"])
+    async def ping(self, ctx):
+        """\n    Tests the bot connection."""
+        bot_latency = round(self.bot.latency * 1000, 2)
+        vc: wavelink.Player = ctx.voice_client
+        vc_latency = round(vc.ping, 2) if vc else "(N/A)"
+
+        await ctx.reply(
+            f"🏓 Pong!\n- Bot latency: {bot_latency}ms\n- VC latency: {vc_latency}ms\n{'*If VC latency is <=0ms, try playing something*' if vc_latency == 0 else ''}"
+        )
+
+    @commands.command(aliases=["move", "join", "switch", "set", "p"])
+    async def play(self, ctx, *, search: str | None):
+        vc: wavelink.Player = ctx.voice_client
+
+        channel = ctx.author.voice.channel
+
+        if not channel:
+            return await ctx.reply("You're not in a VC!")
+
+        if vc:
+            await vc.move_to()
+            return await ctx.reply(f"➡ Switching to `{channel.name}`!")
+
+        channel: discord.VoiceChannel
+
+        await channel.connect(cls=wavelink.Player, self_deaf=True)
+
+        return await ctx.reply(f"🔊 Joining `{channel.name}`!")
+    
+
 async def setup(bot):
     print(f'> Loading cog "extensions.{name}"...')
-    await bot.add_cog(Cog(bot), override=True)
+    await bot.add_cog(CogOld(bot), override=True)
 
 
 async def teardown(bot):

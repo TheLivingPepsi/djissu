@@ -1,5 +1,5 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import os
 import asyncio
 import json
@@ -63,23 +63,17 @@ class bot_handler:
 
             print(f"----------\n{COLORS.BOLD}Cogs have been reloaded!{COLORS.RESET}")
 
-        def create_nodes(self, uris, password) -> list:
-            nodes = []
-            for uri in uris:
-                nodes.append(wavelink.Node(uri=uri, password=password))
-
-            return nodes
-
         async def setup_hook(self) -> None:
             print("Launching [dj]issu...")
             runner = asyncio.create_task(self.run_once_when_ready())
             runner.add_done_callback(self.error_handler)
-            print(os.getenv("WAVELINK_TOKEN"))
+            uri = "http://localhost:2333"
             wvlnktoken = os.getenv("WAVELINK_TOKEN", "youshallnotpass").replace('"', "")
-            uris = ["http://localhost:2333"]
-            await wavelink.Pool.connect(
-                client=self, nodes=(self.create_nodes(uris, wvlnktoken))
-            )
+            nodes = [wavelink.Node(uri=uri, password=wvlnktoken)]
+
+            await wavelink.Pool.connect(nodes=nodes, client=self)
+
+            print("Wavelink connected.")
 
     class HelpCommand(commands.DefaultHelpCommand):
         def __init__(self, *args, **kwargs) -> None:
